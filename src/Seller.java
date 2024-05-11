@@ -1,8 +1,15 @@
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 public class Seller {
     private Dealership dealership;
     static final int RECEIVE_TIME = 1500;
     static final int BUY_TIME = 1000;
     private int size = 10;
+
+    private Lock lock = new ReentrantLock();
+    private Condition condition = lock.newCondition();
 
     public Seller(Dealership dealership) {
         this.dealership = dealership;
@@ -14,21 +21,22 @@ public class Seller {
                 Thread.sleep(RECEIVE_TIME);
                 dealership.getCars().add(new Car());
                 System.out.println(Thread.currentThread().getName() + " выпустил 1 авто");
-                synchronized (this) {
-                    notify();
-                }
+                lock.lock();
+                condition.signal();
+                lock.unlock();
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
-    public synchronized Car sellCar() {
+    public Car sellCar() {
+        lock.lock();
         try {
             System.out.println(Thread.currentThread().getName() + " зашел в автосалон");
             while (dealership.getCars().size() == 0) {
                 System.out.println("Машин нет");
-                wait();
+                condition.await();
             }
             Thread.sleep(BUY_TIME);
             System.out.println(Thread.currentThread().getName() + " уехал на новеньком авто");
@@ -39,6 +47,8 @@ public class Seller {
 
         } catch (InterruptedException e) {
             e.printStackTrace();
+        } finally {
+            lock.unlock();
         }
         return dealership.getCars().remove(0);
     }
